@@ -27,15 +27,12 @@ import {
 }from 'https://unpkg.com/three@0.119.0/build/three.module.js';
 
   function App() {
-    const conf = {
-      size: 10,
-      images: [
-        { src: '../img/1.jpg' },
-        { src: '../img/2.jpg' },
-        { src: '../img/3.jpg' },
-        { src: '../img/4.jpg' }
-      ]
-    };
+    const conf = {size: 10,images:[
+      { src: 'https://assets.codepen.io/33787/img2.jpg' },
+      { src: 'https://assets.codepen.io/33787/img3.jpg' },
+      { src: 'https://assets.codepen.io/33787/img4.jpg' }
+    ]
+};
 
 let renderer, scene, camera, cameraCtrl;
   const screen = {
