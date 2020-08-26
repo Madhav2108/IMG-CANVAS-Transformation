@@ -298,4 +298,109 @@ class AnimatedPlane {
       }
     });
   }
+  initPlane() {
+    const { width, wWidth, wHeight } = this.screen;
+    this.wSize = this.size * wWidth / width;
+    this.nx = Math.ceil(wWidth / this.wSize) + 1;
+    this.ny = Math.ceil(wHeight / this.wSize) + 1;
+    this.icount = this.nx * this.ny;
+
+    this.initGeometry();
+    this.initUV();
+    this.initAnimAttributes();
+
+    if (this.imesh) {
+      this.o3d.remove(this.imesh);
+    }
+    this.imesh = new InstancedMesh(this.bGeometry, this.material, this.icount);
+    this.o3d.add(this.imesh);
+
+    const dummy = new Object3D();
+    let index = 0;
+    let x = -(wWidth - (wWidth - this.nx * this.wSize)) / 2 + this.dx;
+    for (let i = 0; i < this.nx; i++) {
+      let y = -(wHeight - (wHeight - this.ny * this.wSize)) / 2 + this.dy;
+      for (let j = 0; j < this.ny; j++) {
+        dummy.position.set(x, y, 0);
+        dummy.updateMatrix();
+        this.imesh.setMatrixAt(index++, dummy.matrix);
+        y += this.wSize;
+      }
+      x += this.wSize;
+    }
+  }
+
+  initGeometry() {
+    // square
+    const geometry = new Geometry();
+    geometry.vertices.push(new Vector3(0, 0, 0));
+    geometry.vertices.push(new Vector3(this.wSize, 0, 0));
+    geometry.vertices.push(new Vector3(0, this.wSize, 0));
+    geometry.vertices.push(new Vector3(this.wSize, this.wSize, 0));
+    geometry.faces.push(new Face3(0, 2, 1));
+    geometry.faces.push(new Face3(2, 3, 1));
+
+    geometry.faceVertexUvs[0].push([
+      new Vector2(0, 0),
+      new Vector2(0, 1),
+      new Vector2(1, 0)
+    ]);
+    geometry.faceVertexUvs[0].push([
+      new Vector2(0, 1),
+      new Vector2(1, 1),
+      new Vector2(1, 0)
+    ]);
+
+    // geometry.computeFaceNormals();
+    // geometry.computeVertexNormals();
+
+    // center
+    this.dx = this.wSize / 2;
+    this.dy = this.wSize / 2;
+    geometry.translate(-this.dx, -this.dy, 0);
+
+    this.bGeometry = new BufferGeometry().fromGeometry(geometry);
+  }
+
+  initAnimAttributes() {
+    const { randFloat: rnd, randFloatSpread: rndFS } = MathUtils;
+    const v3 = new Vector3();
+
+    const offsets = new Float32Array(this.icount * 3);
+    for (let i = 0; i < offsets.length; i += 3) {
+      if (this.anim === 1) v3.set(rndFS(10), rnd(50, 100), rnd(20, 50)).toArray(offsets, i);
+      else v3.set(rndFS(20), rndFS(20), rnd(20, 200)).toArray(offsets, i);
+    }
+    this.bGeometry.setAttribute('offset', new InstancedBufferAttribute(offsets, 3));
+
+    const rotations = new Float32Array(this.icount * 3);
+    const angle = Math.PI * 4;
+    for (let i = 0; i < rotations.length; i += 3) {
+      rotations[i] = rndFS(angle);
+      rotations[i + 1] = rndFS(angle);
+      rotations[i + 2] = rndFS(angle);
+    }
+    this.bGeometry.setAttribute('rotation', new InstancedBufferAttribute(rotations, 3));
+  }
+
+  initUV() {
+    const ratio = this.nx / this.ny;
+    const tRatio = this.texture.image.width / this.texture.image.height;
+    if (ratio > tRatio) this.uvScale.set(1 / this.nx, (tRatio / ratio) / this.ny);
+    else this.uvScale.set((ratio / tRatio) / this.nx, 1 / this.ny);
+    const nW = this.uvScale.x * this.nx;
+    const nH = this.uvScale.y * this.ny;
+
+    const v2 = new Vector2();
+    const uvOffsets = new Float32Array(this.icount * 2);
+    for (let i = 0; i < this.nx; i++) {
+      for (let j = 0; j < this.ny; j++) {
+        v2.set(
+          this.uvScale.x * i + (1 - nW) / 2,
+          this.uvScale.y * j + (1 - nH) / 2
+        ).toArray(uvOffsets, (i * this.ny + j) * 2);
+      }
+    }
+    this.bGeometry.setAttribute('uvOffset', new InstancedBufferAttribute(uvOffsets, 2));
+  }
 }
