@@ -107,4 +107,64 @@ let renderer, scene, camera, cameraCtrl;
     scene.add(planes);
   }
 
+  function initListeners() {
+    document.addEventListener('mousemove', e => {
+      mouse.x = (e.clientX / screen.width) * 2 - 1;
+      mouse.y = -(e.clientY / screen.height) * 2 + 1;
+    });
+
+    window.addEventListener('wheel', e => {
+      e.preventDefault();
+      if (e.deltaY > 0) {
+        targetProgress = limit(targetProgress + 1 / 20, 0, conf.images.length - 1);
+      } else {
+        targetProgress = limit(targetProgress - 1 / 20, 0, conf.images.length - 1);
+      }
+    });
+
+    document.addEventListener('click', e => {
+      if (e.clientY < screen.height / 2) {
+        navPrevious();
+      } else {
+        navNext();
+      }
+    });
+
+    document.addEventListener('keyup', e => {
+      if (e.keyCode === 37 || e.keyCode === 38) {
+        navPrevious();
+      } else if (e.keyCode === 39 || e.keyCode === 40) {
+        navNext();
+      }
+    });
+  }
+
+  function navNext() {
+    if (Number.isInteger(targetProgress)) targetProgress += 1;
+    else targetProgress = Math.ceil(targetProgress);
+    targetProgress = limit(targetProgress, 0, conf.images.length - 1);
+  }
+
+  function navPrevious() {
+    if (Number.isInteger(targetProgress)) targetProgress -= 1;
+    else targetProgress = Math.floor(targetProgress);
+    targetProgress = limit(targetProgress, 0, conf.images.length - 1);
+  }
+
+  function updateProgress() {
+    const progress1 = lerp(progress, targetProgress, 0.1);
+    const pdiff = progress1 - progress;
+    if (pdiff === 0) return;
+
+    const p0 = progress % 1;
+    const p1 = progress1 % 1;
+    if ((pdiff > 0 && p1 < p0) || (pdiff < 0 && p0 < p1)) {
+      const i = Math.floor(progress1);
+      plane1.setTexture(textures[i]);
+      plane2.setTexture(textures[i + 1]);
+    }
+
+    progress = progress1;
+    setPlanesProgress(progress % 1);
+  }
 }
