@@ -30,10 +30,10 @@ import {
     const conf = {
       size: 10,
       images: [
-        { src: '' },
-        { src: '' },
-        { src: '' },
-        { src: '' }
+        { src: '../img/1.jpg' },
+        { src: '../img/2.jpg' },
+        { src: '../img/3.jpg' },
+        { src: '../img/4.jpg' }
       ]
     };
 
@@ -166,5 +166,136 @@ let renderer, scene, camera, cameraCtrl;
 
     progress = progress1;
     setPlanesProgress(progress % 1);
+  }
+
+  function setPlanesProgress(progress) {
+    plane1.uProgress.value = progress;
+    plane2.uProgress.value = -1 + progress;
+    plane1.material.opacity = 1 - progress;
+    plane2.material.opacity = progress;
+    plane1.o3d.position.z = progress;
+    plane2.o3d.position.z = progress - 1;
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    updateProgress();
+
+    const tiltX = lerp(planes.rotation.x, -mouse.y * 0.2, 0.1);
+    const tiltY = lerp(planes.rotation.y, mouse.x * 0.2, 0.1);
+    planes.rotation.set(tiltX, tiltY, 0);
+
+    renderer.render(scene, camera);
+  }
+
+  let resizeTimeout;
+  function onResize() {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(updateSize, 200);
+  }
+
+  function updateSize() {
+    screen.width = window.innerWidth;
+    screen.height = window.innerHeight;
+    screen.ratio = screen.width / screen.height;
+    if (renderer && camera) {
+      renderer.setSize(screen.width, screen.height);
+      camera.aspect = screen.ratio;
+      camera.updateProjectionMatrix();
+      const wsize = getRendererSize();
+      screen.wWidth = wsize[0]; screen.wHeight = wsize[1];
+    }
+    if (plane1) plane1.resize();
+    if (plane2) plane2.resize();
+  }
+
+  function getRendererSize() {
+    const vFOV = (camera.fov * Math.PI) / 180;
+    const h = 2 * Math.tan(vFOV / 2) * Math.abs(camera.position.z);
+    const w = h * camera.aspect;
+    return [w, h];
+  }
+
+  function loadTexture(img, index) {
+    return new Promise(resolve => {
+      loader.load(
+        img.src,
+        texture => {
+          textures[index] = texture;
+          resolve(texture);
+        }
+      );
+    });
+  }
+}
+
+class AnimatedPlane {
+  constructor(params) {
+    for (const [key, value] of Object.entries(params)) {
+      this[key] = value;
+    }
+    this.o3d = new Object3D();
+    this.uProgress = { value: 0 };
+    this.uvScale = new Vector2();
+
+    this.initMaterial();
+    this.initPlane();
+  }
+
+  initMaterial() {
+    this.material = new MeshBasicMaterial({
+      side: DoubleSide,
+      transparent: true,
+      map: this.texture,
+      onBeforeCompile: shader => {
+        shader.uniforms.progress = this.uProgress;
+        shader.uniforms.uvScale = { value: this.uvScale };
+        shader.vertexShader = `
+          uniform float progress;
+          uniform vec2 uvScale;
+
+          attribute vec3 offset;
+          attribute vec3 rotation;
+          attribute vec2 uvOffset;
+
+          mat3 rotationMatrixXYZ(vec3 r)
+          {
+            float cx = cos(r.x);
+            float sx = sin(r.x);
+            float cy = cos(r.y);
+            float sy = sin(r.y);
+            float cz = cos(r.z);
+            float sz = sin(r.z);
+
+            return mat3(
+               cy * cz, cx * sz + sx * sy * cz, sx * sz - cx * sy * cz,
+              -cy * sz, cx * cz - sx * sy * sz, sx * cz + cx * sy * sz,
+                    sy,               -sx * cy,                cx * cy
+            );
+          }
+        ` + shader.vertexShader;
+
+        shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', `
+          #include <uv_vertex>
+          vUv = vUv * uvScale + uvOffset;
+        `);
+
+        shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `
+          mat3 rotMat = rotationMatrixXYZ(progress * rotation);
+          transformed = rotMat * transformed;
+
+          vec4 mvPosition = vec4(transformed, 1.0);
+          #ifdef USE_INSTANCING
+            mvPosition = instanceMatrix * mvPosition;
+          #endif
+
+          mvPosition.xyz += progress * offset;
+
+          mvPosition = modelViewMatrix * mvPosition;
+          gl_Position = projectionMatrix * mvPosition;
+        `);
+      }
+    });
   }
 }
