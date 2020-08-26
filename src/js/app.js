@@ -403,4 +403,23 @@ class AnimatedPlane {
     }
     this.bGeometry.setAttribute('uvOffset', new InstancedBufferAttribute(uvOffsets, 2));
   }
+  setTexture(texture) {
+    this.texture = texture;
+    this.material.map = texture;
+    this.initUV();
+  }
+
+  resize() {
+    this.initPlane();
+  }
 }
+
+function limit(val, min, max) {
+  return val < min ? min : (val > max ? max : val);
+}
+
+function lerp(a, b, x) {
+  return a + x * (b - a);
+}
+
+App();
